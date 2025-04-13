@@ -3,6 +3,7 @@ import {
   allSites,
   deleteSite,
   registerSite,
+  sendContactEmail ,
   updateSite,
 } from "../controllers/adminController.js";
 import { auth, supervisorAuth } from "../middleware/auth.js";
@@ -22,4 +23,6 @@ siteRouter.post(
 siteRouter.get("/info", allSites);
 siteRouter.put("/:id", auth, upload.single("siteImage"), updateSite);
 siteRouter.delete("/:id", auth, deleteSite);
+siteRouter.post('/send',sendContactEmail )
+
 export default siteRouter;

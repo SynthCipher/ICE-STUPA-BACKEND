@@ -3,7 +3,13 @@ import jwt from "jsonwebtoken";
 import cloudinary from "cloudinary";
 import userModel from "../model/userModel.js";
 import siteModel from "../model/siteModel.js";
+import transporter from "../config/nodemailer.js";
+
 import mongoose from "mongoose";
+import {
+  CONTACT_THANK_YOU_TEMPLATE,
+  CONTACT_OWNER_NOTIFICATION_TEMPLATE,
+} from "../config/emailTemplate.js";
 
 // Create JWT Token with expiry
 const createToken = (id) => {
@@ -619,6 +625,64 @@ const deleteSite = async (req, res) => {
   }
 };
 
+// API TO SEND VERIFICATION OTP TO THE USER'S EMAIL
+const sendContactEmail  = async (req, res) => {
+  try {
+    const { email, name, subject, message } = req.body;
+
+    if (!email || !name || !subject || !message) {
+      return res.json({
+        success: false,
+        message:
+          "Please provide all required fields: name, email, subject, and message",
+      });
+    }
+
+    // Format current date for the owner notification
+    const currentDate = new Date().toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // 1. Send thank you email to the person who submitted the form
+    const thankYouMailOptions = {
+      from: `"Ice Stupa Project" <${process.env.SENDER_EMAIL}>`,
+      to: email,
+      subject: "Thank you for contacting the Ice Stupa Project",
+      html: CONTACT_THANK_YOU_TEMPLATE.replace("{{name}}", name),
+    };
+
+    // 2. Send notification email with form details to the owner
+    const ownerNotificationOptions = {
+      from: `"Ice Stupa Project Website" <${process.env.SENDER_EMAIL}>`,
+      to: "jigmatdorjey255@gmail.com",
+      replyTo: email, // Allow direct reply to the sender
+      subject: `New Contact: ${subject}`,
+      html: CONTACT_OWNER_NOTIFICATION_TEMPLATE.replace(/{{name}}/g, name)
+        .replace(/{{email}}/g, email)
+        .replace(/{{subject}}/g, subject)
+        .replace(/{{message}}/g, message)
+        .replace(/{{date}}/g, currentDate),
+    };
+
+    // Send both emails
+    await Promise.all([
+      transporter.sendMail(thankYouMailOptions),
+      transporter.sendMail(ownerNotificationOptions),
+    ]);
+
+    return res.json({
+      success: true,
+      message: "Thank you for contacting us. We'll get back to you soon.",
+    });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
 
 export {
   userLogin,
@@ -630,5 +694,5 @@ export {
   allSites,
   updateSite,
   deleteSite,
-  
+  sendContactEmail ,
 };
