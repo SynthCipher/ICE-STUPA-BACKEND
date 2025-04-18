@@ -10,6 +10,7 @@ import {
   CONTACT_THANK_YOU_TEMPLATE,
   CONTACT_OWNER_NOTIFICATION_TEMPLATE,
 } from "../config/emailTemplate.js";
+import UserModel from "../model/userModel.js";
 
 // Create JWT Token with expiry
 const createToken = (id) => {
@@ -427,6 +428,7 @@ const updateSite = async (req, res) => {
     // Extract form data
     const {
       siteName,
+      coordinates,
       location,
       country,
       siteDescription,
@@ -441,17 +443,17 @@ const updateSite = async (req, res) => {
     } = req.body;
 
     // Handle coordinates
-    const coordinates = {
-      latitude: req.body["coordinates[latitude]"]
-        ? parseFloat(req.body["coordinates[latitude]"])
-        : existingSite.coordinates.latitude,
-      longitude: req.body["coordinates[longitude]"]
-        ? parseFloat(req.body["coordinates[longitude]"])
-        : existingSite.coordinates.longitude,
-      altitude: req.body["coordinates[altitude]"]
-        ? parseFloat(req.body["coordinates[altitude]"])
-        : existingSite.coordinates.altitude,
-    };
+    // const coordinates = {
+    //   latitude: req.body["coordinates[latitude]"]
+    //     ? parseFloat(req.body["coordinates[latitude]"])
+    //     : existingSite.coordinates.latitude,
+    //   longitude: req.body["coordinates[longitude]"]
+    //     ? parseFloat(req.body["coordinates[longitude]"])
+    //     : existingSite.coordinates.longitude,
+    //   altitude: req.body["coordinates[altitude]"]
+    //     ? parseFloat(req.body["coordinates[altitude]"])
+    //     : existingSite.coordinates.altitude,
+    // };
 
     // Handle image upload to Cloudinary if provided
     let siteImageUrl = existingSite.siteImage;
@@ -626,7 +628,7 @@ const deleteSite = async (req, res) => {
 };
 
 // API TO SEND VERIFICATION OTP TO THE USER'S EMAIL
-const sendContactEmail  = async (req, res) => {
+const sendContactEmail = async (req, res) => {
   try {
     const { email, name, subject, message } = req.body;
 
@@ -684,6 +686,121 @@ const sendContactEmail  = async (req, res) => {
   }
 };
 
+const fetchAllUser = async (req, res) => {
+  try {
+    const users = await userModel.find({});
+
+    // console.log(users); // Consider removing this in production
+
+    res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+// Update user
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fullName, userName, email, phone, location, role, isLocal, active } = req.body;
+
+    // Check if user exists
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if username already exists (if username is being changed)
+    if (userName !== user.userName) {
+      const existingUser = await UserModel.findOne({ userName });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Username already exists",
+        });
+      }
+    }
+
+    // Update user fields
+    user.fullName = fullName;
+    user.userName = userName;
+    if (email) user.email = email; // Only update if provided
+    user.phone = phone;
+    user.location = location;
+    user.role = role;
+    user.isLocal = isLocal;
+    user.active = active;
+
+    // Save updated user
+    const updatedUser = await user.save();
+
+    // Return success response without sending back password
+    const userResponse = {
+      _id: updatedUser._id,
+      fullName: updatedUser.fullName,
+      userName: updatedUser.userName,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      location: updatedUser.location,
+      role: updatedUser.role,
+      isLocal: updatedUser.isLocal,
+      active: updatedUser.active,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update user",
+      error: error.message,
+    });
+  }
+};
+
+
+// Delete user
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if user exists
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Delete user
+    await UserModel.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete user",
+      error: error.message,
+    });
+  }
+};
 export {
   userLogin,
   adminLogin,
@@ -694,5 +811,8 @@ export {
   allSites,
   updateSite,
   deleteSite,
-  sendContactEmail ,
+  sendContactEmail,
+  fetchAllUser,
+  updateUser,
+  deleteUser
 };
